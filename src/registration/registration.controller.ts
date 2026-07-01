@@ -5,6 +5,7 @@ import {
   Inject,
   HttpException,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import {
@@ -16,6 +17,8 @@ import {
 } from '@nestjs/swagger';
 import { firstValueFrom, TimeoutError, throwError } from 'rxjs';
 import { timeout, catchError } from 'rxjs/operators';
+import { CreateUserDto } from './dto/create-user.dto';
+import { validate } from 'class-validator';
 
 @ApiTags('Authentication')
 @Controller('REG001')
@@ -34,9 +37,16 @@ export class RegistrationController {
       type: 'object',
       description: 'Registration payload forwarded to the Auth Service',
       example: {
-        username: 'john.doe',
-        password: 'P@ssw0rd!',
-        email: 'john.doe@example.com',
+        personal: {
+          title: 'ศาสตราจารย์',
+          person_id: '1100702530622',
+          given_name: 'นุกูล',
+          family_name: 'เพิ่มสุทธิ',
+          birth_date: new Date('1991-09-17'),
+          date_of_expiry: new Date('2030-09-17'),
+          email: 'nukool@40.co.th',
+          mobile_no: '0611426633',
+        },
       },
     },
   })
@@ -54,8 +64,20 @@ export class RegistrationController {
   @ApiResponse({ status: 504, description: 'Auth Service timed out' })
   @ApiBearerAuth('JWT-auth')
   @Post()
-  async register(@Body() body: unknown): Promise<{ message: string }> {
-    console.log(body);
+  async register(
+    @Body() body: { personal: CreateUserDto },
+  ): Promise<{ message: string }> {
+    const personal = new CreateUserDto(body.personal);
+
+    const errors = await validate(personal);
+    // errors is an array of validation errors
+    if (errors.length > 0) {
+      console.log('validation failed. errors: ', errors);
+      throw new BadRequestException();
+    } else {
+      console.log('validation succeed');
+    }
+
     const message = await firstValueFrom(
       this.authClient.send<string>('REG001', body).pipe(
         timeout(5_000),
