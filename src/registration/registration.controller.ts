@@ -5,20 +5,18 @@ import {
   Inject,
   HttpException,
   HttpStatus,
-  BadRequestException,
 } from '@nestjs/common';
-import { ClientProxy } from '@nestjs/microservices';
+import { ClientProxy, RpcException } from '@nestjs/microservices';
 import {
   ApiTags,
   ApiOperation,
-  ApiBody,
   ApiResponse,
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import { firstValueFrom, TimeoutError, throwError } from 'rxjs';
 import { timeout, catchError } from 'rxjs/operators';
-import { CreateUserDto } from './dto/create-user.dto';
-import { validate } from 'class-validator';
 
 @ApiTags('Authentication')
 @Controller('REG001')
@@ -31,6 +29,31 @@ export class RegistrationController {
     summary: 'Register a new user',
     description:
       'Forwards the registration payload to the Auth Service (dol-auth-service) via TCP transport and returns the result.',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Registration successful',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'User registered successfully' },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Validation failed',
+    schema: {
+      type: 'object',
+      properties: {
+        statusCode: { type: 'number', example: 400 },
+        message: {
+          type: 'array',
+          items: { type: 'string' },
+          example: ['email must be an email'],
+        },
+        error: { type: 'string', example: 'Bad Request' },
+      },
+    },
   })
   @ApiBody({
     schema: {
@@ -46,17 +69,10 @@ export class RegistrationController {
           date_of_expiry: new Date('2030-09-17'),
           email: 'nukool@40.co.th',
           mobile_no: '0611426633',
+          user_type_id: 1,
+          created_by: '123e4567-e89b-41d4-a716-446655440000',
         },
-      },
-    },
-  })
-  @ApiResponse({
-    status: 201,
-    description: 'Registration successful',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string', example: 'User registered successfully' },
+        address: {},
       },
     },
   })
@@ -64,20 +80,7 @@ export class RegistrationController {
   @ApiResponse({ status: 504, description: 'Auth Service timed out' })
   @ApiBearerAuth('JWT-auth')
   @Post()
-  async register(
-    @Body() body: { personal: CreateUserDto },
-  ): Promise<{ message: string }> {
-    const personal = new CreateUserDto(body.personal);
-
-    const errors = await validate(personal);
-    // errors is an array of validation errors
-    if (errors.length > 0) {
-      console.log('validation failed. errors: ', errors);
-      throw new BadRequestException();
-    } else {
-      console.log('validation succeed');
-    }
-
+  async register(@Body() body: unknown): Promise<{ message: string }> {
     const message = await firstValueFrom(
       this.authClient.send<string>('REG001', body).pipe(
         timeout(5_000),
@@ -91,13 +94,20 @@ export class RegistrationController {
                 ),
             );
           }
-          return throwError(
-            () =>
-              new HttpException(
-                'Auth service unavailable',
-                HttpStatus.SERVICE_UNAVAILABLE,
-              ),
-          );
+
+          if (err instanceof Error) {
+            return throwError(
+              () =>
+                new HttpException(
+                  'Auth service unavailable',
+                  HttpStatus.SERVICE_UNAVAILABLE,
+                ),
+            );
+          }
+
+          // Structured validation error forwarded from the Auth Service's
+          // RpcException — rewrapped so RpcExceptionFilter can catch it.
+          return throwError(() => new RpcException(err as object | string));
         }),
       ),
     );

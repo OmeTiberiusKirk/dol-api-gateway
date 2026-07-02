@@ -101,8 +101,4 @@ export class CreateUserDto {
   @IsBoolean()
   @IsOptional()
   is_verify?: boolean;
-
-  constructor(data: CreateUserDto) {
-    this.person_id = data.person_id;
-  }
 }
