@@ -2,7 +2,9 @@ import {
   ArgumentsHost,
   BadRequestException,
   Catch,
+  ConflictException,
   ExceptionFilter,
+  HttpException,
 } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
 import { Response } from 'express';
@@ -16,14 +18,25 @@ export class RpcExceptionFilter implements ExceptionFilter<RpcException> {
   catch(exception: RpcException, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
     const error = exception.getError();
-
     const message =
-      typeof error === 'string'
-        ? error
-        : ((error as RpcErrorPayload)?.message ?? 'Validation failed');
+      (error as RpcErrorPayload)?.message ?? 'An unknown error occurred.';
+    let request: HttpException;
 
-    const badRequest = new BadRequestException(message);
+    switch (error['statusCode']) {
+      case 400:
+        request = new BadRequestException(message);
+        break;
+      case 409:
+        request = new ConflictException(message);
+        break;
+      default:
+        request = new HttpException(
+          { message, error: 'Unknown error', statusCode: 520 },
+          520,
+        );
+        break;
+    }
 
-    response.status(badRequest.getStatus()).json(badRequest.getResponse());
+    response.status(request.getStatus()).json(request.getResponse());
   }
 }
