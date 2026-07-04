@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { SubDistrictsController } from './sub-districts.controller';
-import { SubDistrictsService } from './sub-districts.service';
+import { MasterController } from './master.controller';
+import { MasterService } from './master.service';
 
 @Module({
   imports: [
@@ -16,7 +16,7 @@ import { SubDistrictsService } from './sub-districts.service';
       },
     ]),
   ],
-  controllers: [SubDistrictsController],
-  providers: [SubDistrictsService],
+  providers: [MasterService],
+  controllers: [MasterController],
 })
-export class SubDistrictsModule {}
+export class MasterModule {}

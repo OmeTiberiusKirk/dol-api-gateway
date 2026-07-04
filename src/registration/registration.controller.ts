@@ -1,12 +1,4 @@
-import {
-  Controller,
-  Post,
-  Body,
-  Inject,
-  HttpException,
-  HttpStatus,
-} from '@nestjs/common';
-import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { Controller, Post, Body } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -15,15 +7,12 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import { firstValueFrom, TimeoutError, throwError } from 'rxjs';
-import { timeout, catchError } from 'rxjs/operators';
+import { RegistrationService } from './registration.service';
 
 @ApiTags('Authentication')
 @Controller('REG001')
 export class RegistrationController {
-  constructor(
-    @Inject('AUTH_SERVICE') private readonly authClient: ClientProxy,
-  ) {}
+  constructor(private readonly registrationService: RegistrationService) {}
 
   @ApiOperation({
     summary: 'Register a new user',
@@ -59,7 +48,7 @@ export class RegistrationController {
     schema: {
       type: 'object',
       description: 'Registration payload forwarded to the Auth Service',
-      example: {
+      examples: {
         personal: {
           title: 'ศาสตราจารย์',
           person_id: '1100702530622',
@@ -90,38 +79,7 @@ export class RegistrationController {
   @ApiResponse({ status: 504, description: 'Auth Service timed out' })
   @ApiBearerAuth('JWT-auth')
   @Post()
-  async register(@Body() body: unknown): Promise<{ message: string }> {
-    const message = await firstValueFrom(
-      this.authClient.send<string>('REG001', body).pipe(
-        timeout(5_000),
-        catchError((err: unknown) => {
-          if (err instanceof TimeoutError) {
-            return throwError(
-              () =>
-                new HttpException(
-                  'Auth service timed out',
-                  HttpStatus.GATEWAY_TIMEOUT,
-                ),
-            );
-          }
-
-          if (err instanceof Error) {
-            return throwError(
-              () =>
-                new HttpException(
-                  'Auth service unavailable',
-                  HttpStatus.SERVICE_UNAVAILABLE,
-                ),
-            );
-          }
-
-          // Structured validation error forwarded from the Auth Service's
-          // RpcException — rewrapped so RpcExceptionFilter can catch it.
-          return throwError(() => new RpcException(err as object | string));
-        }),
-      ),
-    );
-
-    return { message };
+  async register(@Body() body: unknown) {
+    return this.registrationService.register(body);
   }
 }

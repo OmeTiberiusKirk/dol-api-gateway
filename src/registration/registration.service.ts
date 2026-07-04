@@ -1,17 +1,21 @@
 import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
-import { firstValueFrom, TimeoutError, throwError } from 'rxjs';
-import { timeout, catchError } from 'rxjs/operators';
+import {
+  catchError,
+  firstValueFrom,
+  throwError,
+  timeout,
+  TimeoutError,
+} from 'rxjs';
+import { ApiSuccessResponse } from 'src/common/interceptors/transform.interceptor';
 
 @Injectable()
-export class DistrictsService {
-  constructor(
-    @Inject('AUTH_SERVICE') private readonly authClient: ClientProxy,
-  ) {}
+export class RegistrationService {
+  constructor(@Inject('AUTH_SERVICE') private readonly client: ClientProxy) {}
 
-  async getDistricts(): Promise<string> {
+  async register(body: unknown) {
     return firstValueFrom(
-      this.authClient.send<string>('DISTRICTS', {}).pipe(
+      this.client.send<ApiSuccessResponse<unknown>>('REG001', body).pipe(
         timeout(5_000),
         catchError((err: unknown) => {
           if (err instanceof TimeoutError) {
@@ -34,6 +38,8 @@ export class DistrictsService {
             );
           }
 
+          // Structured validation error forwarded from the Auth Service's
+          // RpcException — rewrapped so RpcExceptionFilter can catch it.
           return throwError(() => new RpcException(err as object | string));
         }),
       ),

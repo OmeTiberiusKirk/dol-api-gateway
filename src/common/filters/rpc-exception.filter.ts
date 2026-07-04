@@ -19,7 +19,9 @@ export class RpcExceptionFilter implements ExceptionFilter<RpcException> {
     const response = host.switchToHttp().getResponse<Response>();
     const error = exception.getError();
     const message =
-      (error as RpcErrorPayload)?.message ?? 'An unknown error occurred.';
+      typeof error === 'object'
+        ? ((error as RpcErrorPayload)?.message ?? 'An unknown error occurred.')
+        : error;
     let request: HttpException;
 
     switch (error['statusCode']) {
