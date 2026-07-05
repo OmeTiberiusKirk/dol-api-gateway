@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
@@ -12,6 +12,23 @@ async function bootstrap() {
 
   app.useGlobalFilters(new RpcExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      // exceptionFactory: (errors: ValidationError[]) => {
+      //   const message = errors.flatMap((error) =>
+      //     Object.values(error.constraints ?? {}),
+      //   );
+
+      //   return new RpcException({
+      //     statusCode: HttpStatus.BAD_REQUEST,
+      //     error: 'Bad Request',
+      //     message,
+      //   });
+      // },
+    }),
+  );
 
   const swaggerConfig = new DocumentBuilder()
     .setTitle('DOL API Gateway')

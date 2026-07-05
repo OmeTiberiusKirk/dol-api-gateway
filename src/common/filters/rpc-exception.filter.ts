@@ -23,6 +23,7 @@ export class RpcExceptionFilter implements ExceptionFilter<RpcException> {
         ? ((error as RpcErrorPayload)?.message ?? 'An unknown error occurred.')
         : error;
     let request: HttpException;
+    console.error('error', 5);
 
     switch (error['statusCode']) {
       case 400:

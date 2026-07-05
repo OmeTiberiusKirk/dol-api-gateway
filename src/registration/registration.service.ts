@@ -1,5 +1,12 @@
-import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { ClientProxy, RpcException } from '@nestjs/microservices';
+import { validate } from 'class-validator';
 import {
   catchError,
   firstValueFrom,
@@ -7,15 +14,35 @@ import {
   timeout,
   TimeoutError,
 } from 'rxjs';
+import { CreatePersonalDto } from 'src/common/dto/create-personal.dto';
+import { CreateUserDto } from 'src/common/dto/create-user.dto';
+import { CreateAddressDto } from 'src/common/dto/create-userAddress.dto';
 import { ApiSuccessResponse } from 'src/common/interceptors/transform.interceptor';
 
 @Injectable()
 export class RegistrationService {
   constructor(@Inject('AUTH_SERVICE') private readonly client: ClientProxy) {}
 
-  async register(body: unknown) {
+  async register(data: CreateUserDto) {
+    const personal = new CreatePersonalDto(data.personal);
+    const address = new CreateAddressDto(data.address);
+    const pErrors = await validate(personal);
+    const aErrors = await validate(address);
+    const errors = pErrors.concat(aErrors);
+
+    if (errors.length > 0) {
+      const message = errors.flatMap((error) =>
+        Object.values(error.constraints ?? {}),
+      );
+
+      throw new BadRequestException({
+        statusCode: HttpStatus.BAD_REQUEST,
+        message,
+      });
+    }
+
     return firstValueFrom(
-      this.client.send<ApiSuccessResponse<unknown>>('REG001', body).pipe(
+      this.client.send<ApiSuccessResponse<unknown>>('REG001', data).pipe(
         timeout(5_000),
         catchError((err: unknown) => {
           if (err instanceof TimeoutError) {
