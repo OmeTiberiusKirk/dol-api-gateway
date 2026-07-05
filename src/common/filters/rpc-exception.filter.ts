@@ -4,6 +4,7 @@ import {
   Catch,
   ConflictException,
   ExceptionFilter,
+  ForbiddenException,
   HttpException,
 } from '@nestjs/common';
 import { RpcException } from '@nestjs/microservices';
@@ -23,11 +24,13 @@ export class RpcExceptionFilter implements ExceptionFilter<RpcException> {
         ? ((error as RpcErrorPayload)?.message ?? 'An unknown error occurred.')
         : error;
     let request: HttpException;
-    console.error('error', 5);
 
     switch (error['statusCode']) {
       case 400:
         request = new BadRequestException(message);
+        break;
+      case 403:
+        request = new ForbiddenException(message);
         break;
       case 409:
         request = new ConflictException(message);
